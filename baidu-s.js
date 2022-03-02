@@ -2,7 +2,7 @@
  * @Author: qwelz
  * @Date: 2022-01-17 23:16:32
  * @LastEditors: qwelz
- * @LastEditTime: 2022-01-17 23:16:33
+ * @LastEditTime: 2022-03-02 11:03:13
  */
 "use strict";
 
@@ -13,7 +13,7 @@ function ownKeys(object, enumerableOnly) {
     if (Object.getOwnPropertySymbols) {
         var symbols = Object.getOwnPropertySymbols(object);
         if (enumerableOnly)
-            symbols = symbols.filter(function (sym) {
+            symbols = symbols.filter(function(sym) {
                 return Object.getOwnPropertyDescriptor(object, sym).enumerable;
             });
         keys.push.apply(keys, symbols);
@@ -25,13 +25,13 @@ function _objectSpread(target) {
     for (var i = 1; i < arguments.length; i++) {
         var source = arguments[i] != null ? arguments[i] : {};
         if (i % 2) {
-            ownKeys(Object(source), true).forEach(function (key) {
+            ownKeys(Object(source), true).forEach(function(key) {
                 _defineProperty(target, key, source[key]);
             });
         } else if (Object.getOwnPropertyDescriptors) {
             Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
         } else {
-            ownKeys(Object(source)).forEach(function (key) {
+            ownKeys(Object(source)).forEach(function(key) {
                 Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
             });
         }
@@ -144,7 +144,7 @@ function _arrayLikeToArray(arr, len) {
 // @run-at          document-start
 // @connect         *
 // ==/UserScript==
-!(function () {
+!(function() {
     "use strict";
 
     var meta_url = "http://pcs.baidu.com/rest/2.0/pcs/file?app_id=778750&method=meta&path=";
@@ -254,7 +254,7 @@ function _arrayLikeToArray(arr, len) {
             _step;
 
         try {
-            for (_iterator.s(); !(_step = _iterator.n()).done; ) {
+            for (_iterator.s(); !(_step = _iterator.n()).done;) {
                 var i = _step.value;
 
                 if (!Math.round(Math.random())) {
@@ -274,7 +274,7 @@ function _arrayLikeToArray(arr, len) {
 
     function add_file_list(file_list) {
         var dir_list = [];
-        file_list.forEach(function (item) {
+        file_list.forEach(function(item) {
             if (item.isdir) {
                 dir_list.push(item.path);
             } else {
@@ -297,7 +297,7 @@ function _arrayLikeToArray(arr, len) {
                 showCloseButton: true,
                 confirmButtonText: "是",
                 cancelButtonText: "否",
-            }).then(function (result) {
+            }).then(function(result) {
                 if (result.value) {
                     recursive = true;
                 } else if (result.dismiss === Swal.DismissReason.cancel) {
@@ -329,7 +329,7 @@ function _arrayLikeToArray(arr, len) {
             onload: function onload(r) {
                 if (parseInt(r.status / 100) === 2) {
                     if (!r.response.errno) {
-                        r.response.list.forEach(function (item) {
+                        r.response.list.forEach(function(item) {
                             item.isdir ||
                                 file_info_list.push({
                                     path: item.path,
@@ -369,7 +369,7 @@ function _arrayLikeToArray(arr, len) {
                 showCloseButton: true,
                 allowOutsideClick: false,
                 html: csd_hint_html,
-            }).then(function (result) {
+            }).then(function(result) {
                 if (result.value) {
                     GM_setValue("gen_no_first", true);
                     select_list = getSelectedFileList();
@@ -387,7 +387,7 @@ function _arrayLikeToArray(arr, len) {
                 allowOutsideClick: false,
                 confirmButtonText: "确定",
                 cancelButtonText: "取消",
-            }).then(function (result) {
+            }).then(function(result) {
                 if (result.value) {
                     var unfinish_info = GM_getValue("unfinish");
                     file_info_list = unfinish_info.file_info_list;
@@ -413,7 +413,7 @@ function _arrayLikeToArray(arr, len) {
                 showCloseButton: true,
                 allowOutsideClick: false,
                 html: csd_hint_html,
-            }).then(function (result) {
+            }).then(function(result) {
                 if (result.value) {
                     GM_setValue("fix_no_first", true);
                     get_bdstoken();
@@ -445,14 +445,14 @@ function _arrayLikeToArray(arr, len) {
         }
 
         $.ajax({
-            url: bdstoken_url,
-            type: "POST",
-            dataType: "json",
-            data: {
-                fields: JSON.stringify(["bdstoken"]),
-            },
-        })
-            .success(function (r) {
+                url: bdstoken_url,
+                type: "POST",
+                dataType: "json",
+                data: {
+                    fields: JSON.stringify(["bdstoken"]),
+                },
+            })
+            .success(function(r) {
                 if (!r.errno) {
                     bdstoken = r.result.bdstoken;
                     fix_dl_begain();
@@ -461,7 +461,7 @@ function _arrayLikeToArray(arr, len) {
                     alert("获取bdstoken失败, 请尝试重新登录");
                 }
             })
-            .fail(function (r) {
+            .fail(function(r) {
                 alert("获取bdstoken失败, 请尝试刷新页面");
             });
     }
@@ -501,7 +501,7 @@ function _arrayLikeToArray(arr, len) {
     function fix_dl_finish() {
         var fix_failed = 0;
         var failed_info = "";
-        file_info_list.forEach(function (item) {
+        file_info_list.forEach(function(item) {
             if (item.hasOwnProperty("errno")) {
                 fix_failed++;
                 failed_info += "<p>\u6587\u4EF6\uFF1A"
@@ -518,14 +518,13 @@ function _arrayLikeToArray(arr, len) {
             showCloseButton: true,
             showCancelButton: false,
             allowOutsideClick: false,
-            html:
-                file_info_list.length == fix_failed
-                    ? failed_info
-                    : "<p>已生成可正常下载的新文件</p>" + (failed_info ? "<p><br></p>" + failed_info : ""),
+            html: file_info_list.length == fix_failed ?
+                failed_info :
+                "<p>已生成可正常下载的新文件</p>" + (failed_info ? "<p><br></p>" + failed_info : ""),
             onBeforeOpen: function onBeforeOpen() {
                 Add_content(document.createElement("div"));
             },
-        }).then(function (result) {
+        }).then(function(result) {
             file_info_list = [];
 
             require("system-core:system/baseService/message/message.js").trigger("system-refresh");
@@ -543,19 +542,19 @@ function _arrayLikeToArray(arr, len) {
 
         var file_info = file_info_list[file_id];
         $.ajax({
-            url: precreate_url,
-            type: "POST",
-            dataType: "json",
-            data: {
-                block_list: JSON.stringify([file_info.md5]),
-                path: file_info.path,
-                size: file_info.size,
-                mode: 1,
-                isdir: 0,
-                autoinit: 1,
-            },
-        })
-            .success(function (r) {
+                url: precreate_url,
+                type: "POST",
+                dataType: "json",
+                data: {
+                    block_list: JSON.stringify([file_info.md5]),
+                    path: file_info.path,
+                    size: file_info.size,
+                    mode: 1,
+                    isdir: 0,
+                    autoinit: 1,
+                },
+            })
+            .success(function(r) {
                 if (r.errno == 0) {
                     if (r.block_list.length) {
                         file_info.errno = 888;
@@ -569,7 +568,7 @@ function _arrayLikeToArray(arr, len) {
                     fix_dl_precreate(file_id + 1);
                 }
             })
-            .fail(function (r) {
+            .fail(function(r) {
                 file_info.errno = 114;
                 fix_dl_precreate(file_id + 1);
             });
@@ -578,32 +577,32 @@ function _arrayLikeToArray(arr, len) {
     function fix_dl_create(file_id) {
         var file_info = file_info_list[file_id];
         $.ajax({
-            url: create_url + bdstoken,
-            type: "POST",
-            dataType: "json",
-            data: {
-                block_list: JSON.stringify([randomStringTransform(file_info.md5)]),
-                uploadid: file_info.uploadid,
-                path: file_info.path,
-                size: file_info.size,
-                mode: 1,
-                rtype: 2,
-                isdir: 0,
-                a: "commit",
-                sequence: 1,
-                autoinit: 1,
-            },
-        })
-            .success(function (r) {
+                url: create_url + bdstoken,
+                type: "POST",
+                dataType: "json",
+                data: {
+                    block_list: JSON.stringify([randomStringTransform(file_info.md5)]),
+                    uploadid: file_info.uploadid,
+                    path: file_info.path,
+                    size: file_info.size,
+                    mode: 1,
+                    rtype: 2,
+                    isdir: 0,
+                    a: "commit",
+                    sequence: 1,
+                    autoinit: 1,
+                },
+            })
+            .success(function(r) {
                 if (r.errno) {
                     file_info.errno = 888;
                 }
             })
-            .fail(function (r) {
+            .fail(function(r) {
                 file_info.errno = 114;
             })
-            .always(function () {
-                setTimeout(function () {
+            .always(function() {
+                setTimeout(function() {
                     fix_dl_precreate(file_id + 1);
                 }, 2000);
             });
@@ -620,7 +619,7 @@ function _arrayLikeToArray(arr, len) {
 
     function initButtonHome() {
         var loop_count = 0;
-        var loop = setInterval(function () {
+        var loop = setInterval(function() {
             var html_tag = $("div.tcuLAu");
             if (!html_tag.length) return false;
             loop_count++;
@@ -630,10 +629,10 @@ function _arrayLikeToArray(arr, len) {
             } else if (!$("#h5Input0").length) return false;
             else html_tag.append(html_btn);
 
-            var loop2 = setInterval(function () {
+            var loop2 = setInterval(function() {
                 var btn_tag = $("#bdlink_btn");
                 if (!btn_tag.length) return false;
-                btn_tag.click(function () {
+                btn_tag.click(function() {
                     GetInfo();
                 });
                 clearInterval(loop2);
@@ -682,7 +681,7 @@ function _arrayLikeToArray(arr, len) {
                     myGenerater(file_id);
                 }
             },
-        }).then(function (result) {
+        }).then(function(result) {
             if (result.dismiss && xmlhttpRequest) {
                 xmlhttpRequest.abort();
                 GM_deleteValue("unfinish");
@@ -716,7 +715,7 @@ function _arrayLikeToArray(arr, len) {
                     return "输入应在1-30之间";
                 }
             },
-        }).then(function (result) {
+        }).then(function(result) {
             interval = Number(result.value);
             GM_setValue("interval", interval);
             interval_mode = true;
@@ -739,7 +738,7 @@ function _arrayLikeToArray(arr, len) {
                 allowOutsideClick: false,
                 confirmButtonText: "确定",
                 cancelButtonText: "返回",
-            }).then(function (result) {
+            }).then(function(result) {
                 GM_setValue("show_test_warning", result.value);
 
                 if (!result.dismiss) {
@@ -770,7 +769,7 @@ function _arrayLikeToArray(arr, len) {
             bdcode = "";
             var failed_info = "";
             var gen_failed = 0;
-            file_info_list.forEach(function (item) {
+            file_info_list.forEach(function(item) {
                 if (item.hasOwnProperty("errno")) {
                     gen_failed++;
                     failed_info += "<p>\u6587\u4EF6\uFF1A"
@@ -794,8 +793,7 @@ function _arrayLikeToArray(arr, len) {
 
             Swal.fire(
                 _objectSpread(
-                    _objectSpread(
-                        {
+                    _objectSpread({
                             title: "\u751F\u6210\u5B8C\u6BD5 \u5171"
                                 .concat(file_info_list.length, "\u4E2A, \u5931\u8D25")
                                 .concat(gen_failed, "\u4E2A!"),
@@ -805,19 +803,17 @@ function _arrayLikeToArray(arr, len) {
                             showCancelButton: !bdcode,
                             showConfirmButton: bdcode,
                             allowOutsideClick: false,
-                            html: bdcode
-                                ? html_check_md5 + html_document + (failed_info && "<p><br></p>" + failed_info)
-                                : html_document + "<p><br></p>" + failed_info,
+                            html: bdcode ?
+                                html_check_md5 + html_document + (failed_info && "<p><br></p>" + failed_info) :
+                                html_document + "<p><br></p>" + failed_info,
                         },
                         bdcode && checkbox_par
-                    ),
-                    {},
-                    {
+                    ), {}, {
                         onBeforeOpen: function onBeforeOpen() {
-                            var loop = setInterval(function () {
+                            var loop = setInterval(function() {
                                 var html_tag = $("#check_md5_btn");
                                 if (!html_tag.length) return false;
-                                $("#check_md5_btn").click(function () {
+                                $("#check_md5_btn").click(function() {
                                     test_bdlink();
                                 });
                                 clearInterval(loop);
@@ -826,7 +822,7 @@ function _arrayLikeToArray(arr, len) {
                         },
                     }
                 )
-            ).then(function (result) {
+            ).then(function(result) {
                 if (!result.dismiss) {
                     if (!result.value) {
                         bdcode = bdcode.replace(/(\/.+\/)|(\/)/g, "");
@@ -868,8 +864,7 @@ function _arrayLikeToArray(arr, len) {
         }
 
         var get_dl_par = {
-            url:
-                pcs_url +
+            url: pcs_url +
                 "?app_id=".concat(appid_list[appid_id], "&method=download&path=").concat(encodeURIComponent(path)),
             type: "GET",
             headers: {
@@ -909,7 +904,7 @@ function _arrayLikeToArray(arr, len) {
 
                     gen_prog.textContent = "100%";
                     setTimeout(
-                        function () {
+                        function() {
                             myGenerater(file_id + 1);
                         },
                         interval_mode ? interval * 1000 : 1000
@@ -994,7 +989,7 @@ function _arrayLikeToArray(arr, len) {
     SimpleBuffer.prototype.readNumber = function readNumber(index, size) {
         var ret = 0;
 
-        for (var i = index + size; i > index; ) {
+        for (var i = index + size; i > index;) {
             ret = this.buf[--i] + ret * 256;
         }
 
@@ -1043,16 +1038,16 @@ function _arrayLikeToArray(arr, len) {
             .replace(/\s*bdpan:\/\//g, " ")
             .trim()
             .split(" ")
-            .map(function (z) {
+            .map(function(z) {
                 return z
                     .trim()
                     .fromBase64()
                     .match(/([\s\S]+)\|([\d]{1,20})\|([\dA-Fa-f]{32})\|([\dA-Fa-f]{32})/);
             })
-            .filter(function (z) {
+            .filter(function(z) {
                 return z;
             })
-            .map(function (info) {
+            .map(function(info) {
                 return {
                     md5: info[3],
                     md5s: info[4],
@@ -1099,16 +1094,16 @@ function _arrayLikeToArray(arr, len) {
     DuParser.parseDu_v3 = function parseDu_v3(szUrl) {
         return szUrl
             .split("\n")
-            .map(function (z) {
+            .map(function(z) {
                 // unsigned long long: 0~18446744073709551615
                 return z
                     .trim()
                     .match(/-length=([\d]{1,20}) -md5=([\dA-Fa-f]{32}) -slicemd5=([\dA-Fa-f]{32})[\s\S]+"([\s\S]+)"/);
             })
-            .filter(function (z) {
+            .filter(function(z) {
                 return z;
             })
-            .map(function (info) {
+            .map(function(info) {
                 return {
                     md5: info[2],
                     md5s: info[3],
@@ -1121,14 +1116,14 @@ function _arrayLikeToArray(arr, len) {
     DuParser.parseDu_v4 = function parseDu_v4(szUrl) {
         return szUrl
             .split("\n")
-            .map(function (z) {
+            .map(function(z) {
                 // unsigned long long: 0~18446744073709551615
                 return z.trim().match(/([\dA-Fa-f]{32})#([\dA-Fa-f]{32})#([\d]{1,20})#([\s\S]+)/);
             })
-            .filter(function (z) {
+            .filter(function(z) {
                 return z;
             })
-            .map(function (info) {
+            .map(function(info) {
                 return {
                     md5: info[1],
                     md5s: info[2],
@@ -1142,8 +1137,7 @@ function _arrayLikeToArray(arr, len) {
         if (i >= codeInfo.length) {
             Swal.fire(
                 _objectSpread(
-                    _objectSpread(
-                        {
+                    _objectSpread({
                             title: ""
                                 .concat(check_mode ? "测试" : "转存", "\u5B8C\u6BD5 \u5171")
                                 .concat(codeInfo.length, "\u4E2A \u5931\u8D25")
@@ -1152,12 +1146,10 @@ function _arrayLikeToArray(arr, len) {
                             showCloseButton: true,
                         },
                         check_mode && checkbox_par
-                    ),
-                    {},
-                    {
+                    ), {}, {
                         onBeforeOpen: function onBeforeOpen() {
                             var content = Swal.getContent();
-                            codeInfo.forEach(function (item) {
+                            codeInfo.forEach(function(item) {
                                 if (item.errno) {
                                     var file_name = item.path;
 
@@ -1194,7 +1186,7 @@ function _arrayLikeToArray(arr, len) {
                                 btn.textContent = "打开目录";
                                 btn.style.backgroundColor = "#ecae3c";
 
-                                btn.onclick = function () {
+                                btn.onclick = function() {
                                     location.href = ""
                                         .concat(location.origin, "/disk/home?#/all?vmode=list&path=")
                                         .concat(encodeURIComponent(_dir));
@@ -1206,7 +1198,7 @@ function _arrayLikeToArray(arr, len) {
                         },
                     }
                 )
-            ).then(function (result) {
+            ).then(function(result) {
                 if (check_mode) {
                     if (!result.dismiss) {
                         if (!result.value) {
@@ -1262,26 +1254,26 @@ function _arrayLikeToArray(arr, len) {
         }
 
         $.ajax({
-            url: "/api/rapidupload".concat(check_mode || fix_dl ? "?rtype=3" : ""),
-            type: "POST",
-            data: {
-                path: dir + file.path,
-                "content-md5": file.md5,
-                "slice-md5": file.md5s.toLowerCase(),
-                "content-length": file.size,
-            },
-        })
-            .success(function (r) {
+                url: "/api/rapidupload".concat(check_mode || fix_dl ? "?rtype=3" : ""),
+                type: "POST",
+                data: {
+                    path: dir + file.path,
+                    "content-md5": file.md5,
+                    "slice-md5": file.md5s.toLowerCase(),
+                    "content-length": file.size,
+                },
+            })
+            .success(function(r) {
                 if (file.path.match(/["\\\:*?<>|]/)) {
                     codeInfo[i].errno = 2333;
                 } else {
                     codeInfo[i].errno = r.errno;
                 }
             })
-            .fail(function (r) {
+            .fail(function(r) {
                 codeInfo[i].errno = 114;
             })
-            .always(function () {
+            .always(function() {
                 if (codeInfo[i].errno === 404 && try_flag < 2) {
                     saveFile(i, try_flag + 1);
                     return;
@@ -1320,11 +1312,11 @@ function _arrayLikeToArray(arr, len) {
                     (file_size / Math.pow(1024, 3)).toFixed(2),
                     "G"
                 );
-            //文件大于20G时访问秒传接口实际会返回#2
+                //文件大于20G时访问秒传接口实际会返回#2
 
             case 2333:
                 return '链接内的文件路径错误(不能含有以下字符"\\:*?<>|)';
-            //文件路径错误时接口实际也是返回#2
+                //文件路径错误时接口实际也是返回#2
 
             case -10:
                 return "网盘容量已满";
@@ -1385,7 +1377,7 @@ function _arrayLikeToArray(arr, len) {
 
                 fix_dl = document.getElementById("fix_dl_checkbox").checked;
             },
-        }).then(function (result) {
+        }).then(function(result) {
             if (!result.dismiss) {
                 if (result.value === "setting") {
                     setting();
@@ -1420,7 +1412,7 @@ function _arrayLikeToArray(arr, len) {
                         return '路径中不能含有以下字符"\\:*?<>|, 格式示例：/GTA5/';
                     }
                 },
-            }).then(function (result) {
+            }).then(function(result) {
                 if (!result.dismiss) {
                     dir = result.value;
                     GM_setValue("last_dir", dir);
@@ -1475,10 +1467,10 @@ function _arrayLikeToArray(arr, len) {
             hasAdd = true;
             content.innerHTML += "<p><br></p>";
             content.innerHTML += html_feedback;
-            var loop = setInterval(function () {
+            var loop = setInterval(function() {
                 var html_tag = $("#kill_feedback");
                 if (!html_tag.length) return false;
-                $("#kill_feedback").click(function () {
+                $("#kill_feedback").click(function() {
                     GM_setValue("kill_feedback_1.6.1", true);
                     $("#bdcode_feedback").remove();
                 });
@@ -1493,10 +1485,10 @@ function _arrayLikeToArray(arr, len) {
 
             content.innerHTML += html_donate;
 
-            var _loop = setInterval(function () {
+            var _loop = setInterval(function() {
                 var html_tag = $("#kill_donate");
                 if (!html_tag.length) return false;
-                $("#kill_donate").click(function () {
+                $("#kill_donate").click(function() {
                     GM_setValue("kill_donate_1.6.1", true);
                     $("#bdcode_donate").remove();
                 });
@@ -1571,7 +1563,7 @@ function _arrayLikeToArray(arr, len) {
                 showCloseButton: true,
                 allowOutsideClick: false,
                 confirmButtonText: "确定",
-            }).then(function (result) {
+            }).then(function(result) {
                 GM_setValue("1.6.7_no_first", true);
             });
         }
@@ -1580,7 +1572,7 @@ function _arrayLikeToArray(arr, len) {
     function myInit() {
         injectStyle();
         var bdlink = GetInfo_url();
-        window.addEventListener("DOMContentLoaded", function () {
+        window.addEventListener("DOMContentLoaded", function() {
             bdlink ? GetInfo(bdlink) : showUpdateInfo();
             initButtonHome();
             initButtonGen();
@@ -1606,7 +1598,7 @@ function _arrayLikeToArray(arr, len) {
                 Dark: "Dark 黑色主题",
                 "WordPress Admin": "WordPressAdmin 灰色主题",
             },
-        }).then(function (result) {
+        }).then(function(result) {
             if (!result.dismiss) {
                 GM_setValue("Themes", result.value);
                 Swal.fire({
@@ -1681,26 +1673,26 @@ function _arrayLikeToArray(arr, len) {
                 that = this;
             let code = 0;
             $.ajax({
-                url: "/api/rapidupload",
-                type: "POST",
-                data: {
-                    path: file_info["dir_path"] + file.path,
-                    "content-md5": file.md5,
-                    "slice-md5": file.md5s.toLowerCase(),
-                    "content-length": file.size,
-                },
-            })
-                .success(function (r) {
+                    url: "/api/rapidupload",
+                    type: "POST",
+                    data: {
+                        path: file_info["dir_path"] + file.path,
+                        "content-md5": file.md5,
+                        "slice-md5": file.md5s.toLowerCase(),
+                        "content-length": file.size,
+                    },
+                })
+                .success(function(r) {
                     if (file.path.match(/["\\\:*?<>|]/)) {
                         code = 2333;
                     } else {
                         code = r.errno;
                     }
                 })
-                .fail(function (r) {
+                .fail(function(r) {
                     code = 114;
                 })
-                .always(function () {
+                .always(function() {
                     // file-info
                     file_info["errno"] = code;
                     file_info["message"] = code === SUCCESS_ERRNO ? "成功" : checkErrno(code);
@@ -1799,6 +1791,12 @@ function _arrayLikeToArray(arr, len) {
         $.MultiQuickLinks = MultiQuickLinks;
         $.reload_m = () => {
             $.M = new MultiQuickLinks();
+            console.log(`
+                API 绑定在 $.M 对象上，重新加载方法: $.reolad_m();
+                $.M.append(q_link, dir_path);
+                $.M.append_multi(data);
+                $.M.run(data=null);
+            `);
         };
         $.reload_m();
     });
