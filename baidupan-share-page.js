@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BaiduPan 分享页面-文件页
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  try to take over the world!
 // @author       You
 // @match        https://pan.baidu.com/s/*
@@ -9,195 +9,309 @@
 // @grant        none
 // ==/UserScript==
 
-(function() {
-    "use strict";
+"use strict";
 
-    const CHECKBOX_CLASS = "fydGNC",
-        MAX_DIALOG_WAIT_TIMES = 4,
-        MAX_SUCCESS_VERIFY_TIMES = 3,
-        NAME_DICT = {};
+const CLOSE_WHEN_SUCCESS = true,
+    PATH_DICT = {};
 
-    function append(data) {
-        Object.keys(data).forEach((key) => {
-            NAME_DICT[decodeURIComponent(key).trim()] = data[key];
+const TRANSFER_ERROR_NO = {
+        4: "转存出错了，请稍后重试",
+        "-30": "文件已存在",
+        "-31": "转存出错了，请稍后重试",
+        "-32": "空间不足，转存失败",
+        "-33": "所选文件数量超出上限，无法保存",
+        111: "当前有其他保存任务正在进行，请稍后重试",
+        120: "所选文件数量超出上限，无法保存",
+        130: "所选文件数量超出上限，无法保存",
+        31061: "文件已存在",
+        31069: "转存出错了，请稍后重试",
+        31112: "空间不足，转存失败",
+        31075: "所选文件数量超出上限，无法保存",
+        31171: "当前有其他保存任务正在进行，请稍后重试",
+        31174: "所选文件数量超出上限，无法保存",
+        31175: "所选文件数量超出上限，无法保存",
+        90003: "暂无文件夹管理权限，不支持转存",
+    },
+    APP_ID = 250528;
+
+function append(data) {
+    Object.keys(data).forEach((key) => {
+        PATH_DICT[decodeURIComponent(key).trim()] = data[key];
+    });
+}
+
+class ListAction {
+    constructor(folder_path) {
+        this.folder_path = folder_path.charAt(-1) === "/" ? folder_path : `${folder_path}/`;
+        this.response = null;
+    }
+
+    __build_url(dir) {
+        let app_id = 250528,
+            order = "name",
+            desc = 0,
+            start = 0,
+            limit = 1000;
+        return `https://pan.baidu.com/api/list?app_id=${app_id}&dir=${dir}&order=${order}&desc=${desc}&start=${start}&limit=${limit}`;
+    }
+
+    __dirname(path) {
+        if (path === "/") {
+            return "/";
+        }
+        return `/${path
+            .split("/")
+            .filter((x) => x)
+            .slice(0, -1)
+            .join("/")}/`;
+    }
+
+    run(root_dir = null, raw_data = false) {
+        root_dir = root_dir === null ? this.folder_path : root_dir;
+        const url = this.__build_url(root_dir),
+            that = this;
+        return new Promise((resolve, reject) => {
+            jQuery
+                .get(url)
+                .error(function(data) {
+                    console.warn(`获取文件夹内容列表失败: ${root_dir}`);
+                    reject(data);
+                })
+                .success(function(data) {
+                    that.response = data;
+                    // 非法响应
+                    if (!data || data.errno !== 0) {
+                        console.warn(`获取文件夹内容列表失败: ${root_dir}`);
+                        reject(data);
+                        return null;
+                    }
+                    console.log(`获取文件夹内容列表成功: ${root_dir}`);
+                    // 原始数据
+                    if (raw_data) {
+                        return resolve(data);
+                    }
+                    // 精简数据
+                    const result = { files: [], dirs: [] };
+                    data.list.forEach((path) => {
+                        if (!path.isdir) {
+                            result["files"].push(path.path);
+                        } else {
+                            result["dirs"].push(path.path.charAt(-1) === "/" ? path.path : `${path.path}/`);
+                        }
+                    });
+                    resolve(result);
+                });
         });
     }
 
-    class AutoTransfer {
-        constructor() {
-            this.uuid = this.__get_uuid();
-            this.wait_dialog_times = 0;
+    // 返回 [路径存在，路径的父路径存在，父路径]
+    async is_exist(folder_path = null) {
+        folder_path = folder_path || this.folder_path;
+        if (folder_path === "/") {
+            return [true, true, "/"];
         }
-
-        __get_uuid() {
-            let result = /\/s\/1([\w%\-]+)/.exec(window.location.pathname)[1];
-            result = decodeURIComponent(result).trim();
-            console.log(`============= uuid: ${result} =============`);
-            return result;
-        }
-
-        _open_dialog() {
-            let found = false;
-            // check
-            document.querySelectorAll(`[node-type='${CHECKBOX_CLASS}']`).forEach((checkbox) => {
-                if (found || checkbox.textContent !== "全选") {
-                    return null;
-                }
-                found = true;
-                checkbox.click();
-            });
-            // click
-            document.querySelector(".g-button.tools-share-save-hb").click();
-        }
-
-        _choose_save_path() {
-            const expect_name = NAME_DICT[this.uuid];
-            console.log(`============= expect_name: ${expect_name} =============`);
-            // 无分享信息则跳过
-            if (!expect_name || this.wait_dialog_times > MAX_DIALOG_WAIT_TIMES) {
-                return null;
-            }
-            const dialog = document.getElementById("fileTreeDialog"),
-                that = this;
-            // 等待对话窗口
-            if (dialog === null) {
-                ++this.wait_dialog_times;
-                setTimeout(() => {
-                    that._choose_save_path();
-                }, 1000);
-                return null;
-            }
-            console.log(`============= [dialog-opened] =============`);
-            const target = dialog.querySelector("div.save-path-item"),
-                recent_name = target.getAttribute("title").split("/").slice(-1)[0];
-            console.log(`============= recent_name: ${recent_name} =============`);
-            // 转存
-            if (!target.classList.contains("check") && expect_name == recent_name) {
-                target.click();
-            }
-            if (expect_name == recent_name) {
-                dialog.querySelector("[node-type='confirm']").click();
+        let result = [false, false, this.__dirname(this.folder_path)],
+            list = null;
+        try {
+            list = await this.run(result[2]);
+            result[1] = list ? true : false;
+            result[0] = list && list["dirs"].includes(this.folder_path);
+        } catch (error) {
+            if (error && error.errno === -9) {
+                console.warn(`[response]文件夹不存在: ${result[2]}`);
+            } else {
+                console.error(error);
+                console.trace();
             }
         }
-
-        _verify_success() {
-            let count = 0;
-            const iid = setInterval(() => {
-                ++count;
-                const info_title = document.querySelector(".info-section-title");
-                if (info_title && info_title.textContent === "保存成功") {
-                    window.close();
-                }
-                if (count >= MAX_SUCCESS_VERIFY_TIMES) {
-                    clearInterval(iid);
-                }
-            }, 10 * 1000);
-        }
-
-        run() {
-            this._open_dialog();
-            this._choose_save_path();
-            this._verify_success();
-        }
+        return result;
     }
 
-    document.addEventListener("readystatechange", () => {
-        new AutoTransfer().run();
-    });
+    async max_exist_prefix() {
+        let flag = false,
+            result = this.folder_path;
+        let count = 0;
+        while (!flag && count < 10) {
+            let [exist, parent_exist, parent] = await this.is_exist(result);
+            console.log(result, exist, parent_exist, parent);
+            if (exist) {
+                flag = true;
+            } else if (parent_exist) {
+                result = parent;
+                flag = true;
+            } else {
+                result = this.__dirname(this.__dirname(result));
+            }
+            ++count;
+        }
+        return result;
+    }
+}
 
-    // ============================== CODE END ==============================
+class CreateAction {
+    constructor(path) {
+        this.path = path;
+        this.status = null;
+        this.response = null;
+    }
 
-    append({
-        "8a5jy_dcIb8NnT1taGMolA": "ACGzhai1996",
-        lFbuJZHC1xK4MUwG8DBz8Q: "ACGzhai1996",
-        dcCXDaQI2mPdTnO8UZHVPg: "ACGzhai1996",
-        Xha1PlIw_fRVWCEO5BzUmw: "ACGzhai1996",
-        "PbK-R-6XA0dOujkiTdq38w": "ACGzhai1996",
-        q1kqvpj5zqqFp5XhGR7i9A: "ACGzhai1996",
-        joxeoIrFsVdvly_VYvYVFA: "ACGzhai1996",
-        "2qhEAoCq9YGki1NsfJsgCw": "ACGzhai1996",
-        VpXOwMtTLr1TICPoi339zA: "ACGzhai1997",
-        qUyH2fEUgPeZXpGlurc49A: "ACGzhai1997",
-        B0VNcxHemWMwH0GNT_QVhw: "ACGzhai996",
-        "divVG6zWk-kvaz9FyM0tZg%C2%A0": "adjmr",
-        "n2nb9IJHyYJt8Csi-NhX2g%C2%A0": "adjmr",
-        O1Gb8qAXTL88A1RolLFObQ: "adjmr",
-        "Sk4WXts8dnNA-uKPl0GYjA%C2%A0": "adjmr",
-        "bceHPSAotBr1bsnDoVF4_Q%C2%A0": "adjmr",
-        "3f7m37yYA_E6o5_9bMnOug%C2%A0": "adjmr",
-        "LD8dCsBjiJdzfyLwYmcQEQ%C2%A0": "adjmr",
-        "TXNwtCIdCau_MRymct-vzg%C2%A0": "adjmr",
-        "GOw8YctYNb_VHoZjNFtwUg%C2%A0": "adjmr",
-        "7CkGvMprH9brj5zLu9M3Bg": "adjmr",
-        "D0GFQsUIEJlbxiT56Vir2Q%C2%A0": "adjmr",
-        "wVCdLakghBUZ619lCANewg%C2%A0": "adjmr",
-        "-L2FrcKKfiFAqom-_D1rjg": "adjmr",
-        mhIRSoT_GoNYx8kZUGrzlg: "adjmr",
-        Ai1_xcR3qqThIY4uS4NPrg: "adjmr",
-        "wtsYGySsJ0Y1EeK8ZifS7w%C2%A0": "adjmr",
-        SBpNE9BKKNOQIFFuFkCxnw: "adjmr",
-        "4Z_92z9SdGMp-sJ8PhKZdQ": "adjmr",
-        "z-_Chc_2zaZD1loDOHifiw": "adjmr",
-        D_5FzdiJFQMHulBt1QC8Tw: "adjmr",
-        "POr5N7Y3pa-ul7SrdWOTWg": "adjmr",
-        Sd7fdPWo638_VkSXkEydJg: "adjmr",
-        fKi7dBbA3lcrBMTsU11DpQ: "adjmr",
-        "P3uf-vQ4lhnBkKv531QLHA": "adjmr",
-        "6-DtXf-1p1WsBM586SyDUA": "adjmr",
-        "fUWpQ7wt4x-EGpd5D6yeyQ": "aoguojinnian",
-        JkckxSoMTJvVzlcwLC2beg: "baiye",
-        AG6ioFDAx3Rt4ImMvy7Wrw: "bccy",
-        vKcB8LYeT4dMQ7dNGYdv7w: "bccy",
-        PpKkYpnzCwqI09mfYQYLTw: "bccy",
-        v3zA7Hbu47KnDOe0O2uw1w: "bccy",
-        "wKIqDB3luU_RPVm-ktNh6A": "Berserker",
-        B3KdMqhXmP46k_L6If2bCg: "Berserker",
-        ZKbogQIoscW8BuRjHkvE0A: "Berserker",
-        "0Am6zgIhPE4gyJUzZukdEA": "Berserker",
-        _wwo0NRhYA3_HzjDkhCjvA: "Berserker",
-        suD8S_STMyUqNTKhCA8PSQ: "Berserker",
-        o4AXFD8UEbPdo_HjUwjnEg: "Berserker",
-        "LuMBGEECZoIA3dW-GqL8mw": "Berserker",
-        WuNVRpH1RRulQIlZvuIlow: "chong",
-        "pyzjw8jJTIv_TxYs8Dbk-Q ": "chong",
-        "wzcYy8dzrJeyz-trCeq3Aw": "FPS007",
-        JDk5T4IaT3ubvMiqscjycA: "haoxue",
-        gs9_5duKJQBvRoH884zOTA: "haoxue",
-        KeJMsbJ9HlSoGrCuK1Vgug: "haoxue",
-        wOgfWdhjA5BBApJMi1oRZA: "haoxue",
-        "JSEqURXGOXtKNk2CV1-aZQ": "haoxue",
-        oXwivDKq9sQXNCdlXvdP0w: "haoxue",
-        "5qQP9bXnAS2oHrpVZ8fqsg": "heart",
-        xFznuM2mdKPulLVUAzdu4g: "hexero",
-        qCyQdlgVZ6Re7bWkcEwAvg: "HGD100ZSF",
-        "6gyK19gNLvRq8w4yzr4cMQ": "hmoehmoe",
-        xazs8Ar4WqMa6GVtG8aGmQ: "hmoehmoe",
-        DROq5akQ4p0qyXLt9tGyow: "ID",
-        JkckxSoMTJvVzlcwLC2beg: "ID",
-        EuNUMUC5PkESMNn8zlXB6g: "ID",
-        OLXTGnGwsXME3YmVQ2SN_w: "izaya",
-        "UnkEkY2avVT-47YDYghcFQ": "izaya",
-        "Flv-w3Y2OCOuKlbvAA_NZQ": "izaya",
-        "71dNPNeBF5g_82GBC4kRmQ": "izaya",
-        TKd4zRcqwB9YTNdjzKYDlA: "izaya",
-        "20l1f7ALsvCzaA6ZON_ONw": "izaya",
-        ExzxQKFcjyXZ3h2Rn2gDJA: "izaya",
-        WSItNyHgOhucaHT3QUTvYg: "izaya",
-        _LCHjqopWhQLUBXpHkam4g: "izaya",
-        ZOCYss9Vy2vndr_HkPD0yg: "izaya",
-        TTk1bArnly1lzBZ0ynK9IA: "izaya",
-        zBKeDlhlIyZxdC4WXvBHBA: "izaya",
-        JWiNqGn_m_Mcj7wZhzYPcQ: "izaya",
-        Qts_W9c0nwfiLa2SuV5bjA: "izaya",
-        NUtz7m3AVefu2EvamqtVJg: "izaya",
-        "58Bk-Q4QFMKbpG6vBey9bA": "izaya",
-        "Y-jwG7e6VpuH3SED47cAAg": "izaya",
-        MzGeeYsoubuXzDe6dT5X6g: "izaya",
-        MH_KHacyTRd_34LGsfmxaQ: "izaya",
-        jEFuIz0VsYwb3NW8N0fMYA: "izaya",
-        xKtpX4o7Xd4gpi79CZ8mKA: "izaya",
-        Ngs8AWl1c4x8E5WltAVYXA: "izaya",
-        cTx2zdXZNimFHQBcD2BhZg: "izaya",
-        Ue29ULrAnJ5GGbKUhkCUQQ: "izaya",
-    });
-})();
+    __build_request_url() {
+        return `https://pan.baidu.com/api/create?a=commit&app_id=${APP_ID}`;
+    }
+
+    __build_request_data(path) {
+        return {
+            path,
+            isdir: 1,
+            block_list: "[]",
+        };
+    }
+
+    run(verify = false) {
+        const that = this;
+        if (verify && (await new ListAction(this.path).is_exist())) {
+            this.status = "exist";
+            console.log(`文件夹已经存在: ${this.path}`);
+            return resolve(null);
+        }
+        console.log(`尝试创建文件夹: ${this.path}`);
+        return new Promise((resolve, reject) => {
+            jQuery
+                .post(that.__build_request_url(), that.__build_request_data(that.path))
+                .success(function(data) {
+                    if (data && data.path && data.path.charAt(-1) != "/") {
+                        data.path += "/";
+                    }
+                    that.response = data;
+                    if (data && 0 == data.errno) {
+                        that.status = "success";
+                        console.log(`创建文件夹成功: ${data.path}`);
+                        return resolve(data);
+                    }
+                    that.status = "fail";
+                    reject(data);
+                })
+                .fail(function(error) {
+                    that.status = "fail";
+                    reject(error);
+                });
+        });
+    }
+}
+
+class AutoTransfer {
+    constructor() {
+        this.uuid = this.__get_uuid();
+        this.result = {
+            status: null,
+            message: null,
+            errno: null,
+        };
+    }
+
+    __get_uuid() {
+        let result = /\/s\/1([\w%\-]+)/.exec(window.location.pathname)[1];
+        result = decodeURIComponent(result).trim();
+        console.log(`============= uuid: ${result} =============`);
+        return result;
+    }
+
+    __build_request_url() {
+        const locals = window.locals;
+        let shareid = locals.get("shareid"),
+            from = locals.get("share_uk"),
+            sekey = window.currentSekey,
+            ondup = "newcopy",
+            async = 1,
+            app_id = APP_ID;
+        return `https://pan.baidu.com/share/transfer?shareid=${shareid}&from=${from}&sekey=${sekey}&ondup=${ondup}&async=${async}&app_id=${app_id}`;
+    }
+
+    __build_request_data(path) {
+        const fsidlist = window.locals.get("file_list").map((file) => file.fs_id);
+        return {
+            path,
+            fsidlist: `[${fsidlist.join(",")}]`,
+        };
+    }
+
+    _success_callback(data) {}
+
+    _save() {
+        const that = this,
+            expect_path = PATH_DICT[this.uuid];
+        console.log(`============= expect_path: ${expect_path} =============`);
+        // 无分享信息则跳过
+        if (!expect_path) {
+            return null;
+        }
+        // 确保目标存储路径存在
+        new CreateAction(expect_path).run((verify = true));
+        // 发送请求
+        jQuery
+            .ajax({
+                type: "post",
+                url: that.__build_request_url(),
+                data: that.__build_request_data(expect_path),
+                dataType: "json",
+                timeout: 1e5,
+            })
+            .error(function() {
+                that.result.status = "error";
+            })
+            .success(function(data) {
+                that.result.status = "fail";
+                that.result.errno = data ? data.errno : null;
+                if (null === data) {
+                    that.result.message = "网络错误，请稍后重试";
+                } else if (data.errno !== 0) {
+                    that.result.message = TRANSFER_ERROR_NO[data.errno];
+                } else {
+                    that.result.status = "success";
+                    that.result.message = "成功";
+                }
+                that._success_callback(data);
+            })
+            .always(() => {
+                // 输出结果
+                console.log("结束发送转发请求");
+                console.table(that.result);
+                window.locals.set("request-result", that.result);
+                // 页面显示结果
+                const page_node = document.querySelector("dd[node-type='header-apps']");
+                page_node.style.minWidth = "200px";
+                page_node.innerText = JSON.stringify(that.result).replace(/",/g, '",\n');
+            });
+        console.log("开始发送转存请求");
+    }
+
+    _close_window() {
+        if (!CLOSE_WHEN_SUCCESS) {
+            return null;
+        }
+        // 关闭窗口
+        setInterval(() => {
+            const response = window.locals.get("request-result");
+            if (!response || response.status !== "success") {
+                return null;
+            }
+            console.log(`尝试关闭窗口: ${window.location.url}`);
+            window.close();
+        }, 10 * 1000);
+    }
+
+    run() {
+        this._save();
+        this._close_window();
+    }
+}
+
+document.addEventListener("readystatechange", () => {
+    new AutoTransfer().run();
+});
+
+// ============================== CODE END ==============================
+
+append({
+    BdaYkCUebRRvWp5D6MLkMw: "/测试",
+});
