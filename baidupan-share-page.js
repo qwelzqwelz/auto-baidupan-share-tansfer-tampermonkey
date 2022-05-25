@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BaiduPan 分享页面-文件页
 // @namespace    http://tampermonkey.net/
-// @version      0.2
+// @version      0.3
 // @description  try to take over the world!
 // @author       qwelz
 // @match        https://pan.baidu.com/s/*
@@ -42,7 +42,7 @@ function append(data) {
 
 class ListAction {
     constructor(folder_path) {
-        this.folder_path = folder_path.charAt(-1) === "/" ? folder_path : `${folder_path}/`;
+        this.folder_path = folder_path.substr(-1) === "/" ? folder_path : `${folder_path}/`;
         this.response = null;
     }
 
@@ -64,6 +64,17 @@ class ListAction {
             .filter((x) => x)
             .slice(0, -1)
             .join("/")}/`;
+    }
+
+    __dir_includes(path_list, path) {
+        let result = false;
+        path = path.substr(-1) === "/" ? path : path + "/";
+        path_list.forEach((p) => {
+            p = p.substr(-1) === "/" ? p : p + "/";
+            result = result || p === path;
+        });
+
+        return result;
     }
 
     run(root_dir = null, raw_data = false) {
@@ -96,7 +107,7 @@ class ListAction {
                         if (!path.isdir) {
                             result["files"].push(path.path);
                         } else {
-                            result["dirs"].push(path.path.charAt(-1) === "/" ? path.path : `${path.path}/`);
+                            result["dirs"].push(path.path.substr(-1) === "/" ? path.path : `${path.path}/`);
                         }
                     });
                     resolve(result);
@@ -115,7 +126,7 @@ class ListAction {
         try {
             list = await this.run(result[2]);
             result[1] = list ? true : false;
-            result[0] = list && list["dirs"].includes(this.folder_path);
+            result[0] = list && this.__dir_includes(list["dirs"], this.folder_path);
         } catch (error) {
             if (error && error.errno === -9) {
                 console.warn(`[response]文件夹不存在: ${result[2]}`);
@@ -167,19 +178,20 @@ class CreateAction {
         };
     }
 
-    run(verify = false) {
-        const that = this;
-        if (verify && (await new ListAction(this.path).is_exist())) {
-            this.status = "exist";
-            console.log(`文件夹已经存在: ${this.path}`);
-            return resolve(null);
-        }
-        console.log(`尝试创建文件夹: ${this.path}`);
+    async run(verify = false) {
+        const that = this,
+            is_exist = (await new ListAction(this.path).is_exist())[0];
         return new Promise((resolve, reject) => {
+            if (verify && is_exist) {
+                this.status = "exist";
+                console.log(`文件夹已经存在: ${this.path}`);
+                return resolve(null);
+            }
+            console.log(`尝试创建文件夹: ${this.path}`);
             jQuery
                 .post(that.__build_request_url(), that.__build_request_data(that.path))
                 .success(function(data) {
-                    if (data && data.path && data.path.charAt(-1) != "/") {
+                    if (data && data.path && data.path.substr(-1) != "/") {
                         data.path += "/";
                     }
                     that.response = data;
@@ -206,6 +218,7 @@ class AutoTransfer {
             status: null,
             message: null,
             errno: null,
+            show_msg: null,
         };
     }
 
@@ -220,24 +233,22 @@ class AutoTransfer {
         const locals = window.locals;
         let shareid = locals.get("shareid"),
             from = locals.get("share_uk"),
-            sekey = window.currentSekey,
-            ondup = "newcopy",
-            async = 1,
+            sekey = encodeURIComponent(window.currentSekey),
             app_id = APP_ID;
-        return `https://pan.baidu.com/share/transfer?shareid=${shareid}&from=${from}&sekey=${sekey}&ondup=${ondup}&async=${async}&app_id=${app_id}`;
+        return `https://pan.baidu.com/share/transfer?shareid=${shareid}&from=${from}&sekey=${sekey}&app_id=${app_id}`;
     }
 
     __build_request_data(path) {
         const fsidlist = window.locals.get("file_list").map((file) => file.fs_id);
         return {
-            path,
             fsidlist: `[${fsidlist.join(",")}]`,
+            path,
         };
     }
 
     _success_callback(data) {}
 
-    _save() {
+    async _save() {
         const that = this,
             expect_path = PATH_DICT[this.uuid];
         console.log(`============= expect_path: ${expect_path} =============`);
@@ -246,43 +257,48 @@ class AutoTransfer {
             return null;
         }
         // 确保目标存储路径存在
-        new CreateAction(expect_path).run((verify = true));
+        await new CreateAction(expect_path).run(true);
         // 发送请求
-        jQuery
-            .ajax({
-                type: "post",
-                url: that.__build_request_url(),
-                data: that.__build_request_data(expect_path),
-                dataType: "json",
-                timeout: 1e5,
-            })
-            .error(function() {
-                that.result.status = "error";
-            })
-            .success(function(data) {
-                that.result.status = "fail";
-                that.result.errno = data ? data.errno : null;
-                if (null === data) {
-                    that.result.message = "网络错误，请稍后重试";
-                } else if (data.errno !== 0) {
-                    that.result.message = TRANSFER_ERROR_NO[data.errno];
-                } else {
-                    that.result.status = "success";
-                    that.result.message = "成功";
-                }
-                that._success_callback(data);
-            })
-            .always(() => {
-                // 输出结果
-                console.log("结束发送转发请求");
-                console.table(that.result);
-                window.locals.set("request-result", that.result);
-                // 页面显示结果
-                const page_node = document.querySelector("dd[node-type='header-apps']");
-                page_node.style.minWidth = "200px";
-                page_node.innerText = JSON.stringify(that.result).replace(/",/g, '",\n');
-            });
         console.log("开始发送转存请求");
+        return new Promise((resolve, reject) => {
+            jQuery
+                .ajax({
+                    type: "post",
+                    url: that.__build_request_url(),
+                    data: that.__build_request_data(expect_path),
+                    dataType: "json",
+                    timeout: 1e5,
+                })
+                .error(function() {
+                    that.result.status = "error";
+                    reject();
+                })
+                .success(function(data) {
+                    that.result.status = "fail";
+                    that.result.errno = data ? data.errno : null;
+                    that.result.show_msg = data ? data.show_msg : null;
+                    if (null === data) {
+                        that.result.message = "网络错误，请稍后重试";
+                    } else if (data.errno !== 0) {
+                        that.result.message = TRANSFER_ERROR_NO[data.errno];
+                    } else {
+                        that.result.status = "success";
+                        that.result.message = "成功";
+                    }
+                    that._success_callback(data);
+                    resolve(that.result, data);
+                })
+                .always(() => {
+                    // 输出结果
+                    console.log("结束发送转发请求");
+                    console.table(that.result);
+                    window.locals.set("request-result", that.result);
+                    // 页面显示结果
+                    const page_node = document.querySelector("dd[node-type='header-apps']");
+                    page_node.style.minWidth = "200px";
+                    page_node.innerText = JSON.stringify(that.result).replace(/",/g, '",\n');
+                });
+        });
     }
 
     _close_window() {
@@ -300,14 +316,15 @@ class AutoTransfer {
         }, 10 * 1000);
     }
 
-    run() {
-        this._save();
+    async run() {
+        await this._save();
         this._close_window();
     }
 }
 
 document.addEventListener("readystatechange", () => {
-    new AutoTransfer().run();
+    window.T = new AutoTransfer();
+    window.T.run();
 });
 
 // ============================== CODE END ==============================
