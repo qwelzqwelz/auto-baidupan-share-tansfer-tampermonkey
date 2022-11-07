@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BaiduPan 分享页面-文件页
 // @namespace    http://tampermonkey.net/
-// @version      0.3
+// @version      0.4
 // @description  try to take over the world!
 // @author       qwelz
 // @match        https://pan.baidu.com/s/*
@@ -37,6 +37,14 @@ const TRANSFER_ERROR_NO = {
 function append(data) {
     Object.keys(data).forEach((key) => {
         PATH_DICT[decodeURIComponent(key).trim()] = data[key];
+    });
+}
+
+function sleep(seconds) {
+    return new Promise(function(resolve, reject) {
+        setTimeout(() => {
+            return resolve(seconds);
+        }, seconds * 1000);
     });
 }
 
@@ -212,7 +220,7 @@ class CreateAction {
 }
 
 class AutoTransfer {
-    constructor() {
+    constructor(max_retry = 1) {
         this.uuid = this.__get_uuid();
         this.result = {
             status: null,
@@ -220,6 +228,7 @@ class AutoTransfer {
             errno: null,
             show_msg: null,
         };
+        this.max_retry = max_retry;
     }
 
     __get_uuid() {
@@ -286,7 +295,7 @@ class AutoTransfer {
                         that.result.message = "成功";
                     }
                     that._success_callback(data);
-                    resolve(that.result, data);
+                    resolve(that.result.status === "success");
                 })
                 .always(() => {
                     // 输出结果
@@ -317,13 +326,18 @@ class AutoTransfer {
     }
 
     async run() {
-        await this._save();
+        for (let i = 0; i < this.max_retry; i++) {
+            if (await this._save()) {
+                break;
+            }
+            await sleep(1);
+        }
         this._close_window();
     }
 }
 
 document.addEventListener("readystatechange", () => {
-    window.T = new AutoTransfer();
+    window.T = new AutoTransfer(2);
     window.T.run();
 });
 
