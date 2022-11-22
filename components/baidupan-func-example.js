@@ -2,22 +2,25 @@
  * @Author: qwelz
  * @Date: 2022-01-16 00:32:56
  * @LastEditors: qwelz
- * @LastEditTime: 2022-01-16 22:55:04
+ * @LastEditTime: 2022-11-20 23:42:44
  */
 
-function open_links(links, interval_s) {
-    interval_s = interval_s === undefined ? 13 : interval_s;
-    links = "string" === typeof links ? links.split("\n") : links;
+function open_links(links, interval_s = 13, group_size = 1) {
+    links = "string" === typeof links ? links.split("\n").filter((x) => x.trim()) : links;
     let index = 0;
     const open_func = () => {
-        const link = links[index];
-        console.log(`[iterate] index=${index}, link=${link}`);
-        if (!link) {
-            iid !== undefined ? clearInterval(iid) : null;
-            return null;
+        for (let count = 0; count < group_size && index < links.length; ++count) {
+            const link = links[index];
+            console.log(`[iterate] index=${index}/${links.length}, link=${link}`);
+            index += 1;
+            if (!!link) {
+                window.open(link);
+            }
         }
-        window.open(link);
-        index += 1;
+        // 完成全部任务，则终止
+        if (index >= links.length) {
+            iid !== undefined ? clearInterval(iid) : null;
+        }
     };
     open_func();
     const iid = setInterval(open_func, 1000 * interval_s);

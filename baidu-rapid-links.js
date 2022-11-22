@@ -2,7 +2,7 @@
  * @Author: qwelz
  * @Date: 2022-01-17 23:16:32
  * @LastEditors: qwelz
- * @LastEditTime: 2022-11-07 20:50:38
+ * @LastEditTime: 2022-11-20 23:19:05
  */
 // ==UserScript==
 // @name 秒传链接提取
@@ -7984,6 +7984,7 @@
             // RapiduploadTask.prototype.saveFileV2
             const file = file_info.file,
                 file_md5 = upper_md5 ? file.md5.toUpperCase() : file.md5;
+            let err_code = 0;
             $.ajax({
                 url: precreate_url,
                 method: "POST",
@@ -7998,15 +7999,15 @@
             })
                 .fail(function (data) {
                     console.log("precreate-fail, response=", data);
-                    file_info.errno = data.errno;
+                    err_code = data.errno;
                 })
                 .success(function (data) {
                     if (0 !== data.errno) {
-                        file_info.errno = data.errno;
+                        err_code = data.errno;
                         return null;
                     }
                     if (0 !== data.block_list.length) {
-                        file_info.errno = 404;
+                        err_code = 404;
                         return null;
                     }
                     // createFileV2
@@ -8027,7 +8028,7 @@
                     })
                         .fail(function (data) {
                             console.log("transfer-fail, response=", data);
-                            file_info.errno = data.errno;
+                            err_code = data.errno;
                         })
                         .success(function (data) {
                             // retry
@@ -8036,17 +8037,20 @@
                                 ++file_info.try_count;
                             }
                             // 处理返回结果
-                            let code = data.errno;
-                            if (code === 2) {
-                                code = 114;
+                            err_code = data.errno;
+                            if (err_code === 2) {
+                                err_code = 114;
                             }
-                            if (code === 31190) {
-                                code = 404;
+                            if (err_code === 31190) {
+                                err_code = 404;
                             }
-                            file_info["message"] = code === SUCCESS_ERRNO ? "成功" : checkErrno(code);
-                            // next
-                            that._trigger_next();
                         });
+                })
+                .always(function () {
+                    file_info.errno = err_code;
+                    file_info["message"] = err_code === SUCCESS_ERRNO ? "成功" : checkErrno(err_code);
+                    // next
+                    that._trigger_next();
                 });
         }
 
