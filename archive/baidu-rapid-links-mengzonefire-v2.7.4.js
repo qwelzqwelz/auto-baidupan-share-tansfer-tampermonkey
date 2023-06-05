@@ -8302,14 +8302,13 @@
                 .fail(function (data) {
                     console.log("transfer-fail, response=", data);
                     err_code = data.errno;
-                    err_code = err_code === undefined ? data.response.errno : err_code;
                 })
                 .success(function (data) {
                     // 处理返回结果
-                    err_code = data.response.errno;
-                    if (31039 === data.response.errno) {
+                    err_code = data.errno;
+                    if (31039 === data.errno) {
                         err_code = 31039;
-                    } else if (2 === data.response.errno) {
+                    } else if (2 === data.errno) {
                         err_code = 114;
                     }
                 })
