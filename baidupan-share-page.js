@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         BaiduPan 分享页面-文件页
 // @namespace    http://tampermonkey.net/
-// @version      0.4
+// @version      0.5
 // @description  try to take over the world!
 // @author       qwelz
 // @match        https://pan.baidu.com/s/*
+// @match        https://pan.baidu.com/share/init*
 // @icon         https://pan.baidu.com/m-static/base/static/images/favicon.ico
 // @grant        none
 // ==/UserScript==
@@ -41,7 +42,7 @@ function append(data) {
 }
 
 function sleep(seconds) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
         setTimeout(() => {
             return resolve(seconds);
         }, seconds * 1000);
@@ -92,11 +93,11 @@ class ListAction {
         return new Promise((resolve, reject) => {
             jQuery
                 .get(url)
-                .error(function(data) {
+                .error(function (data) {
                     console.warn(`获取文件夹内容列表失败: ${root_dir}`);
                     reject(data);
                 })
-                .success(function(data) {
+                .success(function (data) {
                     that.response = data;
                     // 非法响应
                     if (!data || data.errno !== 0) {
@@ -198,7 +199,7 @@ class CreateAction {
             console.log(`尝试创建文件夹: ${this.path}`);
             jQuery
                 .post(that.__build_request_url(), that.__build_request_data(that.path))
-                .success(function(data) {
+                .success(function (data) {
                     if (data && data.path && data.path.substr(-1) != "/") {
                         data.path += "/";
                     }
@@ -211,7 +212,7 @@ class CreateAction {
                     that.status = "fail";
                     reject(data);
                 })
-                .fail(function(error) {
+                .fail(function (error) {
                     that.status = "fail";
                     reject(error);
                 });
@@ -221,7 +222,6 @@ class CreateAction {
 
 class AutoTransfer {
     constructor(max_retry = 1) {
-        this.uuid = this.__get_uuid();
         this.result = {
             status: null,
             message: null,
@@ -232,8 +232,10 @@ class AutoTransfer {
     }
 
     __get_uuid() {
-        let result = /\/s\/1([\w%\-]+)/.exec(window.location.pathname)[1];
-        result = decodeURIComponent(result).trim();
+        let result = /\/s\/1([\w%\-]+)/.exec(window.location.pathname);
+        if (result) {
+            result = decodeURIComponent(result).trim();
+        }
         console.log(`============= uuid: ${result} =============`);
         return result;
     }
@@ -258,8 +260,12 @@ class AutoTransfer {
     _success_callback(data) {}
 
     async _save() {
+        const uuid = this.__get_uuid();
+        if (!uuid) {
+            return console.warn("获取 uuid 失败");
+        }
         const that = this,
-            expect_path = PATH_DICT[this.uuid];
+            expect_path = PATH_DICT[uuid];
         console.log(`============= expect_path: ${expect_path} =============`);
         // 无分享信息则跳过
         if (!expect_path) {
@@ -278,11 +284,11 @@ class AutoTransfer {
                     dataType: "json",
                     timeout: 1e5,
                 })
-                .error(function() {
+                .error(function () {
                     that.result.status = "error";
                     reject();
                 })
-                .success(function(data) {
+                .success(function (data) {
                     that.result.status = "fail";
                     that.result.errno = data ? data.errno : null;
                     that.result.show_msg = data ? data.show_msg : null;
@@ -310,6 +316,16 @@ class AutoTransfer {
         });
     }
 
+    async _jump_to_list_page() {
+        const jump_button = document.querySelector("#submitBtn");
+        console.log("jump_button:", jump_button);
+        if (!jump_button) {
+            return null;
+        }
+        jump_button.click();
+        await sleep(1);
+    }
+
     _close_window() {
         if (!CLOSE_WHEN_SUCCESS) {
             return null;
@@ -327,6 +343,7 @@ class AutoTransfer {
 
     async run() {
         for (let i = 0; i < this.max_retry; i++) {
+            await this._jump_to_list_page();
             if (await this._save()) {
                 break;
             }
@@ -337,7 +354,7 @@ class AutoTransfer {
 }
 
 document.addEventListener("readystatechange", () => {
-    window.T = new AutoTransfer(2);
+    window.T = new AutoTransfer(3);
     window.T.run();
 });
 

@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name            百度网盘秒传链接提取(最新可维护版本)
+// @name            百度网盘秒传链接提取(自用版)
 // @namespace       taobao.idey.cn/index
 // @version         2.3.2
 // @description     用于提取和生成百度网盘秒传链接
@@ -950,7 +950,9 @@
             this.data = [];
             this.cursor = -1;
             //
-            this.version = 3;
+            this.version = 4;
+            this.max_retry = 5;
+            this.retry_count_dict = {};
         }
 
         __init_md5_funcs() {
@@ -1089,8 +1091,7 @@
                 file = file_info.file,
                 file_md5 = upper_md5 ? file.md5.toUpperCase() : file.md5;
             // 必须要使用 md5s
-            let err_code = 0;
-            const _always_func = function () {
+            const _always_func = function (err_code) {
                 file_info.errno = err_code;
                 file_info["message"] = err_code === SUCCESS_ERRNO ? "成功" : checkErrno(err_code);
                 // next
@@ -1115,13 +1116,61 @@
                 headers: { "User-Agent": "netdisk;2.2.51.6;netdisk;10.0.63;PC;android-android;QTP/1.0.32.2" },
                 onload: function (res) {
                     // 处理返回结果
-                    err_code = res.response.errno;
-                    _always_func(res.response);
+                    _always_func(res.response.errno);
                 },
                 onerror: function (data) {
                     console.log("transfer-fail, response=", data);
-                    err_code = data.errno;
-                    _always_func(data);
+                    _always_func(data.errno);
+                },
+            });
+        }
+
+        _upload_v4(file_info, upper_md5 = false) {
+            const that = this,
+                create_url = "https://" + location.host + "/rest/2.0/xpan/file?method=create",
+                UA = "netdisk;",
+                accessToken = localStorage.getItem("accessToken");
+            // tryRapidUploadCreateFile
+            const file = file_info.file,
+                file_md5 = upper_md5 ? file.md5.toUpperCase() : file.md5,
+                _always_func = function (err_code) {
+                    file_info.errno = err_code;
+                    file_info["message"] = err_code === SUCCESS_ERRNO ? "成功" : checkErrno(err_code);
+                    // next
+                    that._trigger_next();
+                };
+            GM_xmlhttpRequest({
+                url: create_url + "&access_token=" + encodeURIComponent(accessToken),
+                method: "POST",
+                responseType: "json",
+                data: that.__convert_data({
+                    block_list: JSON.stringify([file_md5]),
+                    path: file_info["dir_path"] + file.path.replace(unsafe_pat, "_"),
+                    size: file.size,
+                    isdir: 0,
+                    // rtype=0: 返回报错, 不覆盖文件
+                    // rtype=1: 默认，自动重命名
+                    // rtype=3: 覆盖文件
+                    rtype: 3,
+                }),
+                headers: {
+                    "User-Agent": UA,
+                    cookie: "",
+                },
+                anonymous: true,
+                onerror: function (data) {
+                    console.log("transfer-fail, response=", data);
+                    _always_func(data.errno);
+                },
+                onload: function (data) {
+                    // 处理返回结果
+                    let err_code = data.response.errno;
+                    if (31039 === data.errno) {
+                        err_code = 31039;
+                    } else if (2 === data.errno) {
+                        err_code = 114;
+                    }
+                    _always_func(err_code);
                 },
             });
         }
@@ -1138,14 +1187,28 @@
                 return null;
             }
             // next
-            ++this.cursor;
-            this.__console_line(`完成单个，cursor=${this.cursor}/${this.data.length}`);
+            if (this.cursor < 0) {
+                ++this.cursor;
+            } else {
+                this.retry_count_dict[this.cursor] = (this.retry_count_dict[this.cursor] || 0) + 1;
+                if (
+                    this.data[this.cursor].errno === SUCCESS_ERRNO ||
+                    this.retry_count_dict[this.cursor] > this.max_retry
+                ) {
+                    this.__console_line(
+                        `完成单个，cursor=${this.cursor}/${this.data.length}, errno=${this.data[this.cursor].errno}`
+                    );
+                    ++this.cursor;
+                }
+            }
             if (this.version === 1) {
                 this._upload_v1(this.data[this.cursor]);
             } else if (this.version === 2) {
                 this._upload_v2(this.data[this.cursor]);
             } else if (this.version === 3) {
                 this._upload_v3(this.data[this.cursor]);
+            } else if (this.version === 4) {
+                this._upload_v4(this.data[this.cursor]);
             }
         }
 
@@ -1210,6 +1273,17 @@
                 this.append_multi(data);
             }
             this._trigger_next();
+        }
+
+        export_failed() {
+            const result = {};
+            this.data.forEach((row) => {
+                if (row.errno === SUCCESS_ERRNO) {
+                    return null;
+                }
+                result[row.q_link] = row.dir_path;
+            });
+            return result;
         }
     }
 
