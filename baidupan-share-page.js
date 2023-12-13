@@ -234,7 +234,7 @@ class AutoTransfer {
     __get_uuid() {
         let result = /\/s\/1([\w%\-]+)/.exec(window.location.pathname);
         if (result) {
-            result = decodeURIComponent(result).trim();
+            result = decodeURIComponent(result[1]).trim();
         }
         console.log(`============= uuid: ${result} =============`);
         return result;

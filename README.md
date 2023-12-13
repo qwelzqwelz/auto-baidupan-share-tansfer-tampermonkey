@@ -2,10 +2,14 @@
  * @Author: qwelz
  * @Date: 2022-03-02 11:06:51
  * @LastEditors: qwelz
- * @LastEditTime: 2022-03-02 11:34:01
+ * @LastEditTime: 2023-12-13 18:41:00
 -->
 
 # Baidu 网盘批量转存相关的油猴脚本
+
+# 〇、Update
+
+- 自 2023 月 11 月开始，秒传成功的条件除需正确获取 token 外，还与每个人的 `百度账号/IP` 等有关
 
 # 一、概述
 
